@@ -1,0 +1,5 @@
+__env/
+.env
+__pycache__/
+
+command.txt
