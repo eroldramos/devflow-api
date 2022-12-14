@@ -1,10 +1,11 @@
-from pydantic import BaseModel, EmailStr
-from datetime import datetime
+from pydantic import BaseModel, EmailStr, root_validator, validator
+from datetime import datetime, timezone
 from typing import Optional, List
 from pydantic.types import conint
-
+from .utils import date_beautifier
 class UserIn(BaseModel):
     email: EmailStr
+    username: str
     password: str
     first_name: str
     last_name: str
@@ -21,6 +22,7 @@ class UserUpdate(BaseModel):
 class UserOut(BaseModel):
     id:int
     email: EmailStr
+    username: str
     first_name: str
     last_name: str
     phone_number: Optional[str]
@@ -28,15 +30,41 @@ class UserOut(BaseModel):
         orm_mode = True
 
 class UserLogin(BaseModel):
-    email: EmailStr
+    username: str
     password: str
+    
+
+    
 class PostBase(BaseModel):
     title: str
     content: str
     published: bool = True
+    created_at: datetime
+    class Config:
+        orm_mode = True
 
-class PostCreate(PostBase):
-    pass
+    @root_validator()
+    def date_beautify(cls, values):
+        return date_beautifier(values)
+        
+     
+    
+class UserPosts(UserOut):
+    post : List[PostBase] = []
+    total_posts : int = None
+    class Config:
+        orm_mode = True
+        
+    @root_validator()
+    def total_posts(cls, values):
+        values['total_posts'] = len(values.get('post'))
+ 
+        return values
+class PostCreate(BaseModel):
+    title: str
+    content: str
+    published: bool = True
+
 
 
 class Post(PostBase):

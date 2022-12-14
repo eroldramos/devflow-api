@@ -19,16 +19,33 @@ def create_user(user:schemas.UserIn, db: Session = Depends(get_db)):
 
     hashed_password = utils.hash(user.password)
     user.password = hashed_password
+    user.first_name = user.first_name.capitalize()
+    user.last_name = user.last_name.capitalize()
     new_user = models.User(**user.dict())
+
+    user = db.query(models.User)
+
+    formErrors = []
+    if user.filter(models.User.email==new_user.email).first():
+        formErrors.append(f"Email {new_user.email} already exists.")
+    if user.filter(models.User.username==new_user.username).first():
+        formErrors.append(f"Username {new_user.username} already exists.")
     
-    try:
-        db.add(new_user)
-        db.commit()
-        db.refresh(new_user)
-    except:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT,
-                            detail = f"Email {new_user.email} already exists!")
-    return new_user
+    if len(formErrors) == 0:
+        try:
+            db.add(new_user)
+            db.commit()
+            db.refresh(new_user)
+        except:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                                detail = "Something went wrong.")
+        return new_user
+    else:
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content = {"detail": formErrors}
+        )
+
 
 
 @router.get("/get-logged-in-user", status_code=status.HTTP_201_CREATED, response_model=schemas.UserOut)
@@ -73,9 +90,7 @@ def update_logged_in_user(user: schemas.UserUpdate,db: Session = Depends(get_db)
         content= schemas.UserOut(**jsonable_encoder(updated_user.first())).dict()
     )
     
-@router.get("/get-users",  
-            # response_model=List[schemas.UserOut]
-            )
+@router.get("/get-users")
 def get_users(
         db: Session = Depends(get_db),  
         current_user: int = Depends(oauth2.get_current_user),
